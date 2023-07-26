@@ -13,6 +13,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/valyala/fasthttp"
 )
 
 var ErrUnauthenticated = errors.New("unauthenticated")
@@ -355,6 +357,49 @@ func (s *ServerStore) ProcessWebhook(r *http.Request) (*InvoiceEvent, error) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return nil, err
+	}
+
+	var mac = hmac.New(sha256.New, []byte(s.WebhookSecret))
+	mac.Write(body)
+	var expectedMAC = []byte(hex.EncodeToString(mac.Sum(nil)))
+	if !hmac.Equal(messageMAC, expectedMAC) {
+		return nil, fmt.Errorf("HMAC mismatch, got %s, want %s", messageMAC, expectedMAC)
+	}
+
+	var event = &InvoiceEvent{}
+	if err := json.Unmarshal(body, event); err != nil {
+		return nil, err
+	}
+
+	// mitigate BTCPayServer misconfigurations by checking the store ID
+	if event.StoreID != s.ID {
+		return nil, fmt.Errorf("invoice store ID %s does not match selected store ID %s", event.StoreID, s.ID)
+	}
+
+	// mitigate invalid rates
+	paymentMethods, err := s.GetInvoicePaymentMethods(event.InvoiceID)
+	if err != nil {
+		return nil, err
+	}
+	for cryptoCode, maxRate := range s.MaxRates {
+		if err := ValidateRate(paymentMethods, cryptoCode, maxRate); err != nil {
+			return nil, err
+		}
+	}
+
+	return event, err
+}
+
+func (s *ServerStore) ProcessWebhookFastHttp(r *fasthttp.Request) (*InvoiceEvent, error) {
+
+	var messageMAC = []byte(strings.TrimPrefix(string(r.Header.Peek("BTCPay-Sig")), "sha256="))
+	if len(messageMAC) == 0 {
+		return nil, errors.New("BTCPay-Sig header missing")
+	}
+
+	body := r.Body()
+	if body == nil {
+		return nil, fmt.Errorf("body is empty")
 	}
 
 	var mac = hmac.New(sha256.New, []byte(s.WebhookSecret))
