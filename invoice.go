@@ -32,6 +32,7 @@ type Invoice struct {
 	MonitoringExpiration int64  `json:"monitoringExpiration"`
 	Status               string `json:"status"`
 	AdditionalStatus     string `json:"additionalStatus"`
+	Receipt              `json:"receipt"`
 }
 
 type InvoiceRequest struct {
@@ -39,6 +40,13 @@ type InvoiceRequest struct {
 	Currency        string  `json:"currency"`
 	InvoiceMetadata `json:"metadata,omitempty"`
 	InvoiceCheckout `json:"checkout,omitempty"`
+	Receipt         `json:"receipt,omitempty"`
+}
+
+type Receipt struct {
+	Enabled      bool `json:"enabled,omitempty"`
+	ShowQR       bool `json:"showQR,omitempty"`
+	ShowPayments bool `json:"showPayments,omitempty"`
 }
 
 type InvoiceMetadata struct {

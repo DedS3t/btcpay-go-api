@@ -21,6 +21,10 @@ func TestInvoice(t *testing.T) {
 	ir := &InvoiceRequest{
 		Amount:   1.23,
 		Currency: "USD",
+		Receipt: Receipt{
+			Enabled: true,
+			ShowQR:  true,
+		},
 	}
 	ir.OrderID = "Test"
 
