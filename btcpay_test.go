@@ -42,6 +42,7 @@ func TestInvoice(t *testing.T) {
 		t.Fail()
 	}
 
+
 	// archive invoice
 
 	err = store.ArchiveInvoice(got.ID)

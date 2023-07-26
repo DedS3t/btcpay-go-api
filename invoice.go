@@ -51,6 +51,7 @@ type Receipt struct {
 
 type InvoiceMetadata struct {
 	OrderID string `json:"orderId,omitempty"` // OrderID is stored in the invoice list of your BTCPay server. If the invoice has been created through a payment request, this is the ID of the payment request.
+	PosData map[string]string `json:"posData,omitempty"` 
 }
 
 type InvoiceCheckout struct {
