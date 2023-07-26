@@ -20,7 +20,7 @@ func TestInvoice(t *testing.T) {
 
 	ir := &InvoiceRequest{
 		Amount:   1.23,
-		Currency: "EUR",
+		Currency: "USD",
 	}
 	ir.OrderID = "Test"
 
@@ -34,8 +34,15 @@ func TestInvoice(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got.Amount != 1.23 || got.Currency != "EUR" {
+	if got.Amount != 1.23 || got.Currency != "USD" {
 		t.Fail()
+	}
+
+	// archive invoice
+
+	err = store.ArchiveInvoice(got.ID)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	// simulate a webhook

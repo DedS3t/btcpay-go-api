@@ -24,6 +24,7 @@ type ServerStore struct {
 	Host          string             `json:"uri"`        // without "/api" and without trailing slash, used for API access and user links
 	HostOnion     string             `json:"onion"`      // without "/api" and without trailing slash, used for user links only, can be empty
 	UserAPIKey    string             `json:"userAPIKey"` // to be created in the BTCPay Server user settings (not in the store settings)
+	BasicBase64   string             `json:"basic"`      // base64 encoded "username:password" for basic auth, can be empty
 	ID            string             `json:"id"`
 	WebhookSecret string             `json:"webhookSecret"`
 	MaxRates      map[string]float64 `json:"maxRates"` // example: {"XMR": 200, "BTC": 50000}
@@ -68,7 +69,12 @@ func (s *ServerStore) doRequest(method string, path string, body io.Reader) (*ht
 		return nil, err
 	}
 
-	req.Header.Add("Authorization", fmt.Sprintf("token %s", s.UserAPIKey))
+	if s.BasicBase64 != "" {
+		req.Header.Add("Authorization", fmt.Sprintf("Basic %s", s.BasicBase64))
+	} else {
+		req.Header.Add("Authorization", fmt.Sprintf("token %s", s.UserAPIKey))
+	}
+
 	req.Header.Add("Content-Type", "application/json")
 
 	return (&http.Client{
@@ -127,6 +133,30 @@ func (s *ServerStore) CreateInvoice(req *InvoiceRequest) (*Invoice, error) {
 
 	var invoice = &Invoice{}
 	return invoice, json.Unmarshal(body, invoice)
+}
+
+func (s *ServerStore) ArchiveInvoice(invoiceId string) error {
+	resp, err := s.doRequest(http.MethodDelete, fmt.Sprintf("stores/%s/invoices/%s", s.ID, invoiceId), bytes.NewBuffer([]byte("")))
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return nil
+	case http.StatusUnauthorized: // 401, "Unauthorized" should be "Unauthenticated"
+		return ErrUnauthenticated
+	case http.StatusForbidden:
+		return ErrUnauthorized
+	case http.StatusBadRequest:
+		return ErrBadRequest
+	case http.StatusNotFound:
+		return ErrNotFound
+	default:
+		return fmt.Errorf("response status: %d", resp.StatusCode)
+	}
+
 }
 
 func (s *ServerStore) CreatePaymentRequest(req *PaymentRequestRequest) (*PaymentRequest, error) {
